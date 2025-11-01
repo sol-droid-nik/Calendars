@@ -113,11 +113,62 @@ def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for person, grp in df.groupby("Name"):
         build_ics_for_person(person, grp)
-    links = []
-    for p in sorted(OUT_DIR.glob("*.ics")):
-        links.append(f'<li><a href="calendars/{p.name}">{html.escape(p.stem)}</a></li>')
-    idx = "<h1>Work shifts calendars</h1><ul>" + "\n".join(links) + "</ul>"
-    Path("public/index.html").write_text(idx, encoding="utf-8")
+    # Красивый индекс со списком людей и кнопками подписки
+files = [p.name for p in sorted(OUT_DIR.glob("*.ics"))]
+people = [Path(f).stem for f in files]  # имена без .ics
 
+html_page = f"""<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Työvuorot kalenterit</title>
+  <style>
+    body {{ font-family: system-ui, -apple-system, Arial, sans-serif; background:#fafafa; margin:0; }}
+    .wrap {{ max-width: 760px; margin: 32px auto; padding: 0 16px; }}
+    h1 {{ text-align:center; margin: 0 0 16px; }}
+    p.note {{ text-align:center; color:#666; margin: 0 0 24px; }}
+    .person {{ background:#fff; margin:10px 0; padding:12px 14px; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.08); display:flex; justify-content:space-between; align-items:center; gap:10px; }}
+    .name {{ font-weight:600; }}
+    .btns a {{ display:inline-block; padding:8px 10px; border-radius:8px; text-decoration:none; border:1px solid #ddd; margin-left:6px; }}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📅 Työvuorot 2025</h1>
+  <p class="note">Valitse oma nimi ja lisää kalenteri.</p>
+
+  <div id="list"></div>
+</div>
+
+<script>
+  const people = {people}; // из Python
+  const baseHttp = location.origin + location.pathname.replace(/\\/[^/]*$/, '/') + 'calendars/';
+  function appleLink(stem) {{
+    // webcal:// с абсолютной ссылкой
+    const httpUrl = baseHttp + stem + '.ics';
+    return 'webcal://' + httpUrl.replace(/^https?:\\/\\//, '');
+  }}
+  function googleLink(stem) {{
+    const httpUrl = baseHttp + stem + '.ics';
+    return 'https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(httpUrl);
+  }}
+  function niceName(stem) {{
+    return stem.replaceAll('_', ' ');
+  }}
+  const list = document.getElementById('list');
+  list.innerHTML = people.map(stem => `
+    <div class="person">
+      <div class="name">${{niceName(stem)}}</div>
+      <div class="btns">
+        <a href="${{appleLink(stem)}}"> Apple</a>
+        <a href="${{googleLink(stem)}}">Google</a>
+      </div>
+    </div>
+  `).join('');
+</script>
+</body>
+</html>"""
+Path("public/index.html").write_text(html_page, encoding="utf-8")
 if __name__ == "__main__":
     main()
