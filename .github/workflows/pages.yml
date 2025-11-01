@@ -21,9 +21,9 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
-- name: Run build script
-  run: python ./scripts/build_calendars.py
-  working-directory: ${{ github.workspace }}
+      - name: Run build script
+        run: python ./scripts/build_calendars.py
+        working-directory: ${{ github.workspace }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public
