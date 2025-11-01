@@ -112,7 +112,7 @@ def main():
     df = df[(df["Date"].dt.date >= start) & (df["Date"].dt.date <= end)].copy()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for person, grp in df.groupby("Name"):
-        build_ics_for_person(person, 
+        build_ics_for_person(person), 
                              # --- Сборка красивого index.html с именами и кнопками ---
 ics_files = sorted(OUT_DIR.glob("*.ics"))
 cards = []
