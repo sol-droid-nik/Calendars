@@ -103,16 +103,68 @@ def build_ics_for_person(name: str, df_person: pd.DataFrame):
     (OUT_DIR / f"{slug_name(name)}.ics").write_text("\r\n".join(lines) + "\r\n", encoding="utf-8")
 
 def main():
+    # читаем Excel
     df = read_long_from_excel(EXCEL_PATH)
-    today = datetime.now(TZ).date()
-    d_w = today.isoweekday()
-    days_to_mon = (8 - d_w) % 7 or 7
-    start = today + timedelta(days=days_to_mon)
-    end   = start + timedelta(days=8*7 - 1)
-    df = df[(df["Date"].dt.date >= start) & (df["Date"].dt.date <= end)].copy()
+
+    # создаём .ics по каждому сотруднику
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    people = []
     for person, grp in df.groupby("Name"):
+        people.append(person)
         build_ics_for_person(person, grp)
+
+    # собираем красивую главную страницу со списком имён и кнопками
+    ics_files = sorted(OUT_DIR.glob("*.ics"))
+    cards = []
+    for p in ics_files:
+        stem = p.stem
+        display = stem.replace("_", " ")
+        cards.append(f"""
+        <div class="person">
+          <div class="name">{html.escape(display)}</div>
+          <div class="btns">
+            <a class="apple" data-file="{p.name}" href="calendars/{p.name}"> Apple</a>
+            <a class="google" data-file="{p.name}" href="calendars/{p.name}">Google</a>
+            <a class="raw" href="calendars/{p.name}" download>.ics</a>
+          </div>
+        </div>
+        """)
+
+    html_page = f"""<!DOCTYPE html>
+<html lang="fi"><head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Työvuorot kalenterit</title>
+  <style>
+    body {{ font-family: system-ui, -apple-system, Arial, sans-serif; background:#fafafa; margin:0; }}
+    .wrap {{ max-width: 760px; margin: 32px auto; padding: 0 16px; }}
+    h1 {{ text-align:center; margin: 0 0 16px; }}
+    p.note {{ text-align:center; color:#666; margin: 0 0 24px; }}
+    .person {{ background:#fff; margin:10px 0; padding:12px 14px; border-radius:10px;
+              box-shadow:0 1px 3px rgba(0,0,0,.08); display:flex; justify-content:space-between;
+              align-items:center; gap:10px; }}
+    .name {{ font-weight:600; }}
+    .btns a {{ display:inline-block; padding:8px 10px; border-radius:8px; text-decoration:none;
+               border:1px solid #ddd; margin-left:6px; }}
+  </style>
+</head><body>
+<div class="wrap">
+  <h1>📅 Työvuorot 2025</h1>
+  <p class="note">Valitse oma nimi ja lisää kalenteri.</p>
+  {''.join(cards) if cards else '<p class="note">Ei kalentereita löytynyt.</p>'}
+</div>
+<script>
+  const base = location.origin + location.pathname.replace(/\\/[^/]*$/, '/') + 'calendars/';
+  document.querySelectorAll('.apple').forEach(a => {{
+    const u = base + a.dataset.file;
+    a.href = 'webcal://' + u.replace(/^https?:\\/\\//, '');
+  }});
+  document.querySelectorAll('.google').forEach(a => {{
+    const u = base + a.dataset.file;
+    a.href = 'https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(u);
+  }});
+</script>
+</body></html>"""
+    Path("public/index.html").write_text(html_page, encoding="utf-8")
                              # --- Сборка красивого index.html с именами и кнопками ---
 ics_files = sorted(OUT_DIR.glob("*.ics"))
 cards = []
