@@ -112,10 +112,23 @@ def main():
     df = df[(df["Date"].dt.date >= start) & (df["Date"].dt.date <= end)].copy()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for person, grp in df.groupby("Name"):
-        build_ics_for_person(person, grp)
-    # Красивый индекс со списком людей и кнопками подписки
-files = [p.name for p in sorted(OUT_DIR.glob("*.ics"))]
-people = [Path(f).stem for f in files]  # имена без .ics
+        build_ics_for_person(person, 
+                             # --- Сборка красивого index.html с именами и кнопками ---
+ics_files = sorted(OUT_DIR.glob("*.ics"))
+cards = []
+for p in ics_files:
+    stem = p.stem
+    display = stem.replace("_", " ")
+    cards.append(f"""
+    <div class="person">
+      <div class="name">{html.escape(display)}</div>
+      <div class="btns">
+        <a class="apple" data-file="{p.name}" href="calendars/{p.name}"> Apple</a>
+        <a class="google" data-file="{p.name}" href="calendars/{p.name}">Google</a>
+        <a class="raw" href="calendars/{p.name}" download>.ics</a>
+      </div>
+    </div>
+    """)
 
 html_page = f"""<!DOCTYPE html>
 <html lang="fi">
@@ -128,9 +141,12 @@ html_page = f"""<!DOCTYPE html>
     .wrap {{ max-width: 760px; margin: 32px auto; padding: 0 16px; }}
     h1 {{ text-align:center; margin: 0 0 16px; }}
     p.note {{ text-align:center; color:#666; margin: 0 0 24px; }}
-    .person {{ background:#fff; margin:10px 0; padding:12px 14px; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.08); display:flex; justify-content:space-between; align-items:center; gap:10px; }}
+    .person {{ background:#fff; margin:10px 0; padding:12px 14px; border-radius:10px;
+              box-shadow:0 1px 3px rgba(0,0,0,.08); display:flex; justify-content:space-between;
+              align-items:center; gap:10px; }}
     .name {{ font-weight:600; }}
-    .btns a {{ display:inline-block; padding:8px 10px; border-radius:8px; text-decoration:none; border:1px solid #ddd; margin-left:6px; }}
+    .btns a {{ display:inline-block; padding:8px 10px; border-radius:8px; text-decoration:none;
+               border:1px solid #ddd; margin-left:6px; }}
   </style>
 </head>
 <body>
@@ -138,37 +154,24 @@ html_page = f"""<!DOCTYPE html>
   <h1>📅 Työvuorot 2025</h1>
   <p class="note">Valitse oma nimi ja lisää kalenteri.</p>
 
-  <div id="list"></div>
+  {''.join(cards)}
 </div>
 
 <script>
-  const people = {people}; // из Python
-  const baseHttp = location.origin + location.pathname.replace(/\\/[^/]*$/, '/') + 'calendars/';
-  function appleLink(stem) {{
-    // webcal:// с абсолютной ссылкой
-    const httpUrl = baseHttp + stem + '.ics';
-    return 'webcal://' + httpUrl.replace(/^https?:\\/\\//, '');
-  }}
-  function googleLink(stem) {{
-    const httpUrl = baseHttp + stem + '.ics';
-    return 'https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(httpUrl);
-  }}
-  function niceName(stem) {{
-    return stem.replaceAll('_', ' ');
-  }}
-  const list = document.getElementById('list');
-  list.innerHTML = people.map(stem => `
-    <div class="person">
-      <div class="name">${{niceName(stem)}}</div>
-      <div class="btns">
-        <a href="${{appleLink(stem)}}"> Apple</a>
-        <a href="${{googleLink(stem)}}">Google</a>
-      </div>
-    </div>
-  `).join('');
+  // Превращаем относительные ссылки в нужные "подписки"
+  const base = location.origin + location.pathname.replace(/\\/[^/]*$/, '/') + 'calendars/';
+  document.querySelectorAll('.apple').forEach(a => {{
+    const u = base + a.dataset.file;
+    a.href = 'webcal://' + u.replace(/^https?:\\/\\//, '');
+  }});
+  document.querySelectorAll('.google').forEach(a => {{
+    const u = base + a.dataset.file;
+    a.href = 'https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(u);
+  }});
 </script>
 </body>
 </html>"""
+
 Path("public/index.html").write_text(html_page, encoding="utf-8")
 if __name__ == "__main__":
     main()
