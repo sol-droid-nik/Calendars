@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, time, timezone
 import pandas as pd
 import pytz
 
-EXCEL_PATH = Path("data") / "Työvuorot vuosi 2025.xlsx"
+EXCEL_PATH = Path("data") / "Tyovuorot_2025.xlsx"
 OUT_DIR = Path("public") / "calendars"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
