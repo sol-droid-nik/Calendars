@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <title>Työvuorot kalenterit</title>
+  <style>
+    body { font-family: sans-serif; background:#fafafa; max-width:600px; margin:40px auto; line-height:1.6; }
+    h1 { text-align:center; }
+    .person { background:white; padding:10px 15px; margin:10px 0; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+    a { text-decoration:none; color:#0066cc; margin-right:10px; }
+  </style>
+</head>
+<body>
+  <h1>📅 Työvuorot 2025</h1>
+  <p>Valitse oma nimi ja lisää kalenteri:</p>
+
+  <div id="list">Ladataan...</div>
+
+  <script>
+    const base = 'https://sol-droid-nik.github.io/Calendars/calendars/';
+    const container = document.getElementById('list');
+    const people = [
+      'Nikolay_Sizikov',
+      'Anfisa_Ivanova'
+      // сюда можно добавить имена других сотрудников
+    ];
+    container.innerHTML = people.map(name => `
+      <div class="person">
+        <b>${name.replaceAll('_', ' ')}</b><br>
+        <a href="webcal://${base + name}.ics">📅 Apple</a>
+        <a href="https://calendar.google.com/calendar/u/0/r?cid=${base + name}.ics">📅 Google</a>
+      </div>
+    `).join('');
+  </script>
+</body>
+</html>
