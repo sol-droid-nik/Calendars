@@ -5,10 +5,20 @@ from datetime import datetime, timedelta, time, timezone
 
 import pandas as pd
 import pytz
+from pathlib import Path
+# ... (импорты выше оставь как есть)
 
-EXCEL_PATH = Path("data") / "tyovuorot_2025.xlsx"
+# === Найти любой .xlsx в папке data (без учёта регистра/названия) ===
+DATA_DIR = Path("data")
+cands = sorted(DATA_DIR.glob("*.xlsx"))
+if not cands:
+    raise FileNotFoundError("В папке data нет .xlsx. Загрузите файл расписания в data/.")
+EXCEL_PATH = cands[0]              # берём первый найденный
+print("Using Excel:", EXCEL_PATH)  # для лога Actions
+
 OUT_DIR = Path("public") / "calendars"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
+
 
 TZ = pytz.timezone("Europe/Helsinki")
 WEEKDAYS_FI = ["MA","TI","KE","TO","PE","LA","SU"]
