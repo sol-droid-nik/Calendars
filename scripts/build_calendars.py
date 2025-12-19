@@ -35,36 +35,47 @@ def extract_year_from_text(s: str):
     return int(m.group(1)) if m else None
 
 
-def parse_header_date(header: str, year_hint: int):
-    """
-    header примеры:
-      'MA 31.12'
-      'TO 1.1'
-      'TO 1.1.2026'
-    year_hint обязателен (год берём из листа/файла).
-    """
+def parse_header_date(header: str, year_hint=None, week_hint=None):
     if not isinstance(header, str):
         return None
 
-    m = re.match(r"([A-ZÅÄÖ]{2})\s+(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?", header.strip())
+    m = re.match(
+        r"([A-ZÅÄÖ]{2})\s+(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?",
+        header.strip()
+    )
     if not m:
         return None
 
     day = int(m.group(2))
     month = int(m.group(3))
 
-    # Если год указан прямо в заголовке — он главный
+    # 1) Если год указан прямо в заголовке (1.1.2026) — он главный
     if m.group(4):
         y = int(m.group(4))
         year = 2000 + y if y < 100 else y
+
+    # 2) Иначе берём год из вкладки (vko 1 2026)
+    elif year_hint:
+        year = year_hint
+
+        # ✅ ISO-ловушка: vko 1 2026 может включать дни декабря 2025
+        if week_hint == 1 and month == 12:
+            year = year_hint - 1
+
+    # 3) Иначе запасной вариант
     else:
-        year = int(year_hint)
+        now = datetime.now(TZ)
+        year = now.year
+        if month <= 3 and now.month >= 11:
+            year += 1
+        elif month >= 11 and now.month <= 3:
+            year -= 1
 
     try:
         return datetime(year, month, day)
     except:
         return None
-
+        
 
 def extract_times(txt: str):
     """Возвращает ('HH:MM','HH:MM') или (start,None). Понимает 'klo 7-15' и т.п."""
@@ -125,6 +136,10 @@ def stable_uid(name: str, dt_local: datetime, summary: str) -> str:
     base = f"{name}|{dt_local.strftime('%Y-%m-%dT%H:%M')}|{summary}"
     return uuid.uuid5(uuid.NAMESPACE_URL, base).hex + "@workshifts"
 
+def extract_week_from_sheet(sheet_name: str):
+    m = re.search(r"\bvko\s*(\d{1,2})\b", str(sheet_name), flags=re.IGNORECASE)
+    return int(m.group(1)) if m else None
+    
 
 def read_long_from_excel(path: Path) -> pd.DataFrame:
     xls = pd.ExcelFile(path)
@@ -133,8 +148,9 @@ def read_long_from_excel(path: Path) -> pd.DataFrame:
     rows = []
 
     for sheet in xls.sheet_names:
-        sheet_year = extract_year_from_text(sheet)
-        year_for_sheet = sheet_year or base_year
+        m_year = re.search(r"\b(20\d{2})\b", str(sheet))
+        sheet_year = int(m_year.group(1)) if m_year else None
+        sheet_week = extract_week_from_sheet(sheet)
 
         df = pd.read_excel(path, sheet_name=sheet, dtype=str)
         df.columns = [str(c) for c in df.columns]
@@ -159,7 +175,7 @@ def read_long_from_excel(path: Path) -> pd.DataFrame:
         ]
 
         long_df["Date"] = long_df["DayHeader"].apply(
-            lambda h: parse_header_date(h, year_hint=year_for_sheet)
+            lambda h: parse_header_date(h, year_hint=sheet_year, week_hint=sheet_week))
         )
 
         times = long_df["Shift"].apply(extract_times)
