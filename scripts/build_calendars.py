@@ -23,24 +23,32 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 TZ = pytz.timezone("Europe/Helsinki")
 WEEKDAYS_FI = ["MA","TI","KE","TO","PE","LA","SU"]
 
-def parse_header_date(header: str):
+def parse_header_date(header: str, year_hint=None):
     if not isinstance(header, str):
         return None
 
-    # MA 31.12  /  TO 1.1  /  TO 1.1.2026  — всё это поймаем
-    m = re.match(r"([A-ZÅÄÖ]{2})\s+(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?", header.strip())
+    # MA 31.12 / TO 1.1 / TO 1.1.2026 — всё это ловим
+    m = re.match(
+        r"([A-ZÅÄÖ]{2})\s+(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?",
+        header.strip()
+    )
     if not m:
         return None
 
     day = int(m.group(2))
     month = int(m.group(3))
 
-    # Если год явно указан в заголовке — используем его
+    # 1️⃣ Если год указан прямо в заголовке (1.1.2026) — он главный
     if m.group(4):
         y = int(m.group(4))
         year = 2000 + y if y < 100 else y
+
+    # 2️⃣ Иначе — если год пришёл из имени вкладки (vko 1 2026)
+    elif year_hint:
+        year = year_hint
+
+    # 3️⃣ Иначе — запасной вариант (старое поведение)
     else:
-        # Иначе — умное определение года вокруг Нового года
         now = datetime.now(TZ)
         year = now.year
         if month <= 3 and now.month >= 11:
@@ -86,6 +94,8 @@ def read_long_from_excel(path: Path) -> pd.DataFrame:
     xls = pd.ExcelFile(path)
     rows = []
     for sheet in xls.sheet_names:
+        m_year = re.search(r"\b(20\d{2})\b", str(sheet))
+        sheet_year = int(m_year.group(1)) if m_year else None
         df = pd.read_excel(path, sheet_name=sheet, dtype=str)
         df.columns = [str(c) for c in df.columns]
         df = df.rename(columns={df.columns[0]: "Name"})
@@ -94,7 +104,7 @@ def read_long_from_excel(path: Path) -> pd.DataFrame:
         if not day_cols: continue
         long_df = df.melt(id_vars=["Name"], value_vars=day_cols, var_name="DayHeader", value_name="Shift")
         long_df = long_df[long_df["Shift"].notna() & (long_df["Shift"].astype(str).str.strip()!="")]
-        long_df["Date"] = long_df["DayHeader"].apply(parse_header_date)
+        long_df["Date"] = long_df["DayHeader"].apply(lambda h: parse_header_date(h, year_hint=sheet_year))
         times = long_df["Shift"].apply(extract_times)
         long_df["Start"] = times.apply(lambda t: t[0])
         long_df["End"] = times.apply(lambda t: t[1])
