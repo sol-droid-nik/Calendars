@@ -175,7 +175,7 @@ def read_long_from_excel(path: Path) -> pd.DataFrame:
         ]
 
         long_df["Date"] = long_df["DayHeader"].apply(
-            lambda h: parse_header_date(h, year_hint=sheet_year, week_hint=sheet_week))
+            lambda h: parse_header_date(h, year_hint=sheet_year, week_hint=sheet_week)
         )
 
         times = long_df["Shift"].apply(extract_times)
