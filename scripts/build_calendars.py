@@ -141,7 +141,13 @@ def read_long_from_excel(path: Path) -> pd.DataFrame:
         df = df.rename(columns={df.columns[0]: "Name"})
         df["Name"] = df["Name"].ffill()
 
-        day_cols = [c for c in df.columns if any(c.startswith(w + " ") for w in WEEKDAYS_FI)]
+        def norm_ws(s: str) -> str:
+        return s.replace("\u00A0", " ").strip()
+
+        day_cols = [
+        c for c in df.columns
+        if any(norm_ws(c).upper().startswith(w + " ") for w in WEEKDAYS_FI)
+        ]
         if not day_cols:
             continue
 
