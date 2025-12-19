@@ -142,7 +142,7 @@ def read_long_from_excel(path: Path) -> pd.DataFrame:
         df["Name"] = df["Name"].ffill()
 
         def norm_ws(s: str) -> str:
-        return s.replace("\u00A0", " ").strip()
+            return s.replace("\u00A0", " ").strip()
 
         day_cols = [
         c for c in df.columns
