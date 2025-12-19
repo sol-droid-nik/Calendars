@@ -23,13 +23,35 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 TZ = pytz.timezone("Europe/Helsinki")
 WEEKDAYS_FI = ["MA","TI","KE","TO","PE","LA","SU"]
 
-def parse_header_date(h: str, year=2025):
-    if not isinstance(h, str): return None
-    m = re.match(r"([A-ZÅÄÖ]{2})\s+(\d{1,2})[.](\d{1,2})", h.strip())
-    if not m: return None
-    d, mth = int(m.group(2)), int(m.group(3))
-    try: return datetime(year, mth, d)
-    except: return None
+def parse_header_date(header: str):
+    if not isinstance(header, str):
+        return None
+
+    # MA 31.12  /  TO 1.1  /  TO 1.1.2026  — всё это поймаем
+    m = re.match(r"([A-ZÅÄÖ]{2})\s+(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?", header.strip())
+    if not m:
+        return None
+
+    day = int(m.group(2))
+    month = int(m.group(3))
+
+    # Если год явно указан в заголовке — используем его
+    if m.group(4):
+        y = int(m.group(4))
+        year = 2000 + y if y < 100 else y
+    else:
+        # Иначе — умное определение года вокруг Нового года
+        now = datetime.now(TZ)
+        year = now.year
+        if month <= 3 and now.month >= 11:
+            year += 1
+        elif month >= 11 and now.month <= 3:
+            year -= 1
+
+    try:
+        return datetime(year, month, day)
+    except:
+        return None
 
 def extract_times(txt: str):
     if not isinstance(txt, str): return (None, None)
