@@ -30,6 +30,11 @@ EXCEL_PATH = pick_excel_file(DATA_DIR)
 print("Using Excel:", EXCEL_PATH)
 
 
+m = re.search(r"(20\d{2})", EXCEL_PATH.name)
+BASE_YEAR = int(m.group(1)) if m else datetime.now(TZ).year
+print("BASE_YEAR:", BASE_YEAR)
+
+
 def extract_year_from_text(s: str):
     m = re.search(r"\b(20\d{2})\b", str(s))
     return int(m.group(1)) if m else None
@@ -152,6 +157,9 @@ def read_long_from_excel(path: Path) -> pd.DataFrame:
         sheet_year = int(m_year.group(1)) if m_year else None
         sheet_week = extract_week_from_sheet(sheet)
 
+        # ✅ главное: если в имени вкладки нет года — используем год из имени файла
+        year_for_sheet = sheet_year or base_year
+
         df = pd.read_excel(path, sheet_name=sheet, dtype=str)
         df.columns = [str(c) for c in df.columns]
         df = df.rename(columns={df.columns[0]: "Name"})
@@ -161,8 +169,8 @@ def read_long_from_excel(path: Path) -> pd.DataFrame:
             return s.replace("\u00A0", " ").strip()
 
         day_cols = [
-        c for c in df.columns
-        if any(norm_ws(c).upper().startswith(w + " ") for w in WEEKDAYS_FI)
+            c for c in df.columns
+            if any(norm_ws(c).upper().startswith(w + " ") for w in WEEKDAYS_FI)
         ]
         if not day_cols:
             continue
@@ -175,7 +183,7 @@ def read_long_from_excel(path: Path) -> pd.DataFrame:
         ]
 
         long_df["Date"] = long_df["DayHeader"].apply(
-            lambda h: parse_header_date(h, year_hint=sheet_year, week_hint=sheet_week)
+            lambda h: parse_header_date(h, year_hint=year_for_sheet, week_hint=sheet_week)
         )
 
         times = long_df["Shift"].apply(extract_times)
@@ -191,7 +199,7 @@ def read_long_from_excel(path: Path) -> pd.DataFrame:
     out = out.dropna(subset=["Date"]).copy()
     out["Name"] = out["Name"].astype(str).str.strip()
     return out.sort_values(["Name", "Date"]).reset_index(drop=True)
-
+    
 
 def build_ics_for_person(name: str, df_person: pd.DataFrame):
     default_start = time(7, 0)
