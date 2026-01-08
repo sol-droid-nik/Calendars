@@ -11,6 +11,7 @@ import pytz
 
 TZ = pytz.timezone("Europe/Helsinki")
 WEEKDAYS_FI = ["MA", "TI", "KE", "TO", "PE", "LA", "SU"]
+EXCLUDE_CALENDARS = {"vanha caddy", "uusi caddy"}
 
 DATA_DIR = Path("data")
 OUT_DIR = Path("public") / "calendars"
@@ -263,24 +264,33 @@ def main():
     if not df.empty:
         df = df[(df["Date"].dt.date >= window_start) & (df["Date"].dt.date <= window_end)].copy()
 
-    # Генерируем .ics
+    # Генерируем .ics + собираем отображаемые имена
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    for person, grp in df.groupby("Name"):
-        build_ics_for_person(person, grp)
 
-    # Генерируем красивый index.html из реально созданных .ics
-    ics_files = sorted(OUT_DIR.glob("*.ics"))
+    slug_to_display = {}  # file_slug -> красивое имя из Excel
+
+    for person, grp in df.groupby("Name"):
+        person_clean = str(person).strip()
+        if person_clean.lower() in EXCLUDE_CALENDARS:
+            continue
+        if "caddy" in person_clean.lower():
+            continue
+
+        build_ics_for_person(person_clean, grp)
+
+        slug_to_display[slug_name(person_clean)] = person_clean
+
+    # Собираем красивую главную страницу из slug_to_display (а не из имён файлов)
     cards = []
-    for p in ics_files:
-        stem = p.stem
-        display = stem.replace("_", " ")
+    for slug, display_name in sorted(slug_to_display.items(), key=lambda x: x[1].lower()):
+        fname = f"{slug}.ics"
         cards.append(f"""
         <div class="person">
-          <div class="name">{html.escape(display)}</div>
+          <div class="name">{html.escape(display_name)}</div>
           <div class="btns">
-            <a class="apple" data-file="{p.name}" href="calendars/{p.name}"> Apple</a>
-            <a class="google" data-file="{p.name}" href="calendars/{p.name}">Google</a>
-            <a class="raw" href="calendars/{p.name}" download>.ics</a>
+            <a class="apple" data-file="{fname}" href="calendars/{fname}"> Apple</a>
+            <a class="google" data-file="{fname}" href="calendars/{fname}">Google</a>
+            <a class="raw" href="calendars/{fname}" download>.ics</a>
           </div>
         </div>
         """)
